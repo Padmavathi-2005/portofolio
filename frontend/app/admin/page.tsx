@@ -1,9 +1,51 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Shield, Lock, Terminal, ArrowRight, Key } from 'lucide-react';
+import { api } from './api';
 
 export default function AdminLoginPage() {
+  const router = useRouter();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // If token exists, check if valid and redirect to dashboard
+    const token = localStorage.getItem('admin_token');
+    if (token) {
+      api.checkAuth().then((res) => {
+        if (res.success) {
+          router.push('/admin/dashboard');
+        } else {
+          localStorage.removeItem('admin_token');
+        }
+      });
+    }
+  }, [router]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await api.login(username, password);
+      if (res.success) {
+        localStorage.setItem('admin_token', res.token);
+        router.push('/admin/dashboard');
+      } else {
+        setError(res.message || 'Invalid credentials');
+      }
+    } catch (err) {
+      setError('Connection to backend failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-black">
       {/* Matrix-like background effect */}
@@ -33,7 +75,13 @@ export default function AdminLoginPage() {
             <p className="text-zinc-500 font-mono text-sm">Enter administrative credentials to proceed</p>
           </div>
 
-          <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
+          {error && (
+            <div className="mb-6 p-4 bg-red-950/50 border border-red-500/30 rounded-2xl text-red-400 text-sm font-mono text-center">
+              [ERROR]: {error}
+            </div>
+          )}
+
+          <form className="space-y-8" onSubmit={handleSubmit}>
             <div className="space-y-5">
               <div className="relative group">
                 <label className="text-[10px] uppercase tracking-widest text-amber-500/60 ml-4 mb-1 block font-bold">Admin ID</label>
@@ -43,8 +91,11 @@ export default function AdminLoginPage() {
                   </div>
                   <input
                     type="text"
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     className="w-full bg-black/40 border border-zinc-800 rounded-2xl py-5 pl-14 pr-4 text-white focus:outline-none focus:ring-1 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all font-mono text-sm placeholder:text-zinc-700"
-                    placeholder="Enter ID"
+                    placeholder="Enter ID (e.g. admin)"
                   />
                 </div>
               </div>
@@ -57,6 +108,9 @@ export default function AdminLoginPage() {
                   </div>
                   <input
                     type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     className="w-full bg-black/40 border border-zinc-800 rounded-2xl py-5 pl-14 pr-4 text-white focus:outline-none focus:ring-1 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all font-mono text-sm placeholder:text-zinc-700"
                     placeholder="••••••••••••"
                   />
@@ -69,14 +123,15 @@ export default function AdminLoginPage() {
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 Auth Server Active
               </div>
-              <a href="#" className="text-amber-500/60 hover:text-amber-500 transition-colors">Emergency Reset</a>
+              <span className="text-zinc-600 cursor-not-allowed">Emergency Reset</span>
             </div>
 
             <button
               type="submit"
-              className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-5 rounded-2xl shadow-xl shadow-amber-500/10 hover:shadow-amber-500/30 transition-all flex items-center justify-center gap-3 uppercase tracking-tighter text-lg group"
+              disabled={loading}
+              className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-5 rounded-2xl shadow-xl shadow-amber-500/10 hover:shadow-amber-500/30 transition-all flex items-center justify-center gap-3 uppercase tracking-tighter text-lg group disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Initialize Session
+              {loading ? 'Initializing...' : 'Initialize Session'}
               <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </form>
